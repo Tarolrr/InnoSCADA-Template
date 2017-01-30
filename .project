@@ -3,6 +3,7 @@
 	<name>SCADA_Template</name>
 	<comment></comment>
 	<projects>
+		<project>SX127x_Driver</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

@@ -1,26 +1,19 @@
-//TODO unused warnings from static keyword
-//V1.0.2:
-//	-Storing SMS owner number and temperature parameters in flash
-//V1.0.1:
-//	-Reply SMS only to owner, and only to correct command
-//V1.0.0 - Original version
-
 #include "stm32f1xx_hal.h"
 #include "SX1278Drv.h"
 #include <string.h>
 #include "main.h"
 #include "cmsis_os.h"
 
+#define MySTM
+
 SPI_HandleTypeDef hspi1;
 TIM_HandleTypeDef htim1;
-osTimerId hRxTimer;
 SX1278Drv_LoRaConfiguration cfg;
 
 void SystemClock_Config(void);
 void Error_Handler(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
-static void RxTimerCallback(void const * argument);
 
 int main(void){
 
@@ -30,26 +23,27 @@ int main(void){
 	MX_GPIO_Init();
 	MX_SPI1_Init();
 
-	osTimerDef(RxTimer, RxTimerCallback);
-	hRxTimer = osTimerCreate(osTimer(RxTimer), osTimerOnce, NULL);
-
 	cfg.bw = SX1278Drv_RegLoRaModemConfig1_BW_125;
 	cfg.cr = SX1278Drv_RegLoRaModemConfig1_CR_4_8;
 	cfg.crc = SX1278Drv_RegLoRaModemConfig2_PayloadCrc_ON;
-	cfg.frequency = 868e6;
 	cfg.hdrMode = SX1278Drv_RegLoRaModemConfig1_HdrMode_Explicit;
 	cfg.power = 17;
-	cfg.preambleLength = 20;//
+	cfg.preambleLength = 20;
 	cfg.sf = SX1278Drv_RegLoRaModemConfig2_SF_12;
 	cfg.spi = &hspi1;
-	cfg.spi_css_pin = &SPICSPin;
-	//cfg.rx_en = &LoRaRxEnPin;
-	//cfg.tx_en = &LoRaTxEnPin;
 	cfg.sleepInIdle = true;
+#ifdef MySTM
+	cfg.frequency = 434e6;
+	cfg.spi_css_pin = &SPICSMyPin;
+	cfg.tx_led = &LoRaTxRxPin;
+#else
+	cfg.frequency = 868e6;
+	cfg.spi_css_pin = &SPICSPin;
+	cfg.rx_en = &LoRaRxEnPin;
+	cfg.tx_en = &LoRaTxEnPin;
+#endif
 
 	SX1278Drv_Init(&cfg);
-	//SX1278Drv_SetAdresses(0, (uint16_t *)AddrSensors, SensorCount);
-	//SX1278Drv_SetAdresses(SensorCount, (uint16_t *)AddrRelays, RelayCount);
 
 	osKernelStart();
 	return 0;
@@ -60,10 +54,9 @@ void SystemClock_Config(void){
 	RCC_ClkInitTypeDef RCC_ClkInitStruct;
 	RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_LSI;
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
 	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
 	RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
-	RCC_OscInitStruct.LSIState = RCC_LSI_ON;
 	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
 	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
 	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL3;
@@ -79,10 +72,6 @@ void SystemClock_Config(void){
 	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
 		Error_Handler();
 
-	PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-	PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
-	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-		Error_Handler();
 
 	HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
 	HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
@@ -105,7 +94,6 @@ static void MX_SPI1_Init(void){
 	hspi1.Init.CRCPolynomial = 10;
 	if (HAL_SPI_Init(&hspi1) != HAL_OK)
 		Error_Handler();
-	GPIO_PIN_SET(&SPICSPin);
 }
 
 static void MX_GPIO_Init(void){
@@ -114,26 +102,11 @@ static void MX_GPIO_Init(void){
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOC_CLK_ENABLE();
 	__HAL_RCC_GPIOD_CLK_ENABLE();
-
-	GPIO_InitTypeDef GPIO_InitStruct;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-
-	GPIO_InitStruct.Pin = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-	GPIO_InitStruct.Pin = GPIO_PIN_8 | GPIO_PIN_11 | GPIO_PIN_1;
-	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-	GPIO_InitStruct.Pin = SPICSPin.pin;
-	HAL_GPIO_Init(SPICSPin.port, &GPIO_InitStruct);
 }
 
 void Error_Handler(void){
   while(1);
 }
-
-static void RxTimerCallback(void const * argument){}
 
 void SX1278Drv_LoRaRxCallback(LoRa_Message *msg){}
 

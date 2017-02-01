@@ -24,7 +24,3 @@ void SPI1_IRQHandler(void){
 void TIM1_UP_IRQHandler(void){
   HAL_TIM_IRQHandler(&htim1);
 }
-
-void USART2_IRQHandler(void){
-
-}
